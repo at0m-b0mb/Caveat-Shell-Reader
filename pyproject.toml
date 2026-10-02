@@ -30,8 +30,8 @@ dependencies = ["PyQt6>=6.5"]
 dev = ["pytest>=7.0"]
 
 [project.urls]
-Homepage = "https://github.com/at0m-b0mb/Caveat"
-Source = "https://github.com/at0m-b0mb/Caveat"
+Homepage = "https://github.com/at0m-b0mb/Caveat-Shell-Reader"
+Source = "https://github.com/at0m-b0mb/Caveat-Shell-Reader"
 
 [project.scripts]
 caveat = "caveat.cli:main"
