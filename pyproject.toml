@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "caveat-shell"
-version = "1.0.0"
+version = "1.0.1"
 description = "Read before you run — an offline reader that explains a shell command, and the risks in it, without ever running it."
 readme = "README.md"
 requires-python = ">=3.10"

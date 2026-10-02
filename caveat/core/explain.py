@@ -6,7 +6,7 @@ role — the sentence you would use to a colleague — a *family* the rules can
 reason about structurally, and a short glossary for the flags that change what
 the command does to your machine rather than merely how it prints.
 
-Two deliberate limits:
+Three deliberate limits:
 
 * **The glossary is small on purpose.** It covers the flags that matter when
   somebody is about to paste a line they did not write. Explaining every option
@@ -14,7 +14,14 @@ Two deliberate limits:
 * **A command Caveat has never heard of is said to be unknown**, loudly, rather
   than guessed at. :mod:`caveat.core.assess` turns that into a ceiling, because
   "I do not know what this is" is a more useful answer than a confident wrong
-  one.
+  one. Its flags are left unexplained for the same reason.
+* **A flag is explained only where its meaning is known for that command.**
+  There is a shared :data:`GENERIC_FLAGS` table, but it holds only the handful
+  of long options that mean the same thing everywhere; a letter like ``-n``,
+  which is a line count to ``head`` and a dry run to ``rsync``, is never
+  glossed from a table that does not belong to the command in hand. An
+  unexplained flag reads as silence, which is honest; a wrong explanation would
+  read as fact.
 
 Families, not names, are what the rules use: a rule asks "is this stage a
 *fetcher* piped into a *shell*", so a tool nobody has thought of yet is handled
@@ -75,26 +82,53 @@ def _c(role: str, kind: str = "other", flags: dict[str, str] | None = None,
                        subcommands=subcommands or {})
 
 
-# Flags that mean roughly the same thing wherever they appear. Consulted only
-# after the command's own glossary, so a local meaning always wins.
+# Flags that mean the same thing wherever they appear. Consulted only after the
+# command's own glossary, and only for a command Caveat actually knows.
+#
+# The table is this short on purpose. Every entry had to survive being checked
+# against each command in the dictionary below, and no single letter survived
+# that check: ``-r`` is *reverse* to ``sort`` and *recursive* to ``rm``; ``-n``
+# is a *line count* to ``head`` and a *dry run* to ``rsync``; ``-i`` is *inodes*
+# to ``df``, *ignore case* to ``uniq`` and *ask first* to ``rm``; ``-f`` is a
+# *program file* to ``awk`` and *force* to ``rm``; ``-h`` is a *repeated header*
+# to ``ps`` and *human-readable* to ``du``; ``-a`` is *auto-compress* to ``tar``
+# and *all entries* to ``ls``; ``-v`` is *verbose* to ``curl``, *invert the
+# match* to ``grep``, *print the version* to ``node`` and a *memory format* to
+# ``ps``; ``-q`` is *quiet* to ``grep`` and *select these pids* to Linux ``ps``.
+# A command that needs one of those explained says so in its own entry, because
+# a confident wrong gloss is worse than no gloss at all.
 GENERIC_FLAGS: dict[str, str] = {
-    "-v": "verbose",
-    "-q": "quiet",
-    "-f": "force",
-    "-r": "recursive",
-    "-R": "recursive",
-    "-y": "answer yes to everything",
-    "-h": "human-readable",
-    "-n": "dry run or no-clobber",
-    "-i": "interactive",
-    "-a": "all",
-    "--force": "never stop to ask",
-    "--yes": "answer yes to everything",
-    "--quiet": "quiet",
-    "--verbose": "verbose",
-    "--recursive": "recursive",
     "--help": "print usage and exit",
     "--version": "print the version and exit",
+    "--verbose": "verbose",
+    "--quiet": "quiet",
+    "--force": "never stop to ask",
+    "--recursive": "recurse into directories",
+    "--yes": "answer yes to everything",
+}
+
+
+# ``grep`` and ``egrep`` are the same program with a different default dialect,
+# so they share one glossary rather than each keeping half of it.
+_GREP_FLAGS: dict[str, str] = {
+    "-r": "search a whole directory tree",
+    "-R": "search a whole directory tree, following symbolic links",
+    "-i": "ignore case",
+    "-v": "print the lines that do NOT match",
+    "-n": "show line numbers",
+    "-c": "print how many lines matched, not the lines themselves",
+    "-q": "print nothing; the exit status is the whole answer",
+    "-w": "match whole words only",
+    "-x": "match whole lines only",
+    "-E": "treat the pattern as an extended regular expression",
+    "-F": "treat the pattern as plain text, not a regular expression",
+    "-o": "print only the matching part",
+    "-l": "print only the names of matching files",
+    "-L": "print only the names of files with no match",
+    "-s": "say nothing about files that cannot be read",
+    "-A": "also print this many lines after each match",
+    "-B": "also print this many lines before each match",
+    "-C": "also print this many lines either side of each match",
 }
 
 
@@ -103,6 +137,7 @@ COMMANDS: dict[str, CommandInfo] = {
     "curl": _c("download a URL, or send a request to one", FETCH, {
         "-s": "silent",
         "-S": "still show errors while silent",
+        "-v": "verbose: print the request and the response headers too",
         "-L": "follow redirects wherever they lead",
         "-k": "accept ANY TLS certificate, valid or not",
         "--insecure": "accept ANY TLS certificate, valid or not",
@@ -135,7 +170,11 @@ COMMANDS: dict[str, CommandInfo] = {
     "aria2c": _c("download a URL with many connections at once", FETCH, {
         "--check-certificate": "whether to verify TLS at all",
     }),
-    "ftp": _c("transfer files over FTP, a protocol with no encryption", FETCH),
+    "ftp": _c("transfer files over FTP, a protocol with no encryption", FETCH, {
+        "-n": "do not try to log in automatically",
+        "-i": "do not prompt during a transfer of many files",
+        "-v": "verbose",
+    }),
     "scp": _c("copy files to or from another machine over SSH", NETWORK, {
         "-r": "copy directories recursively",
         "-i": "use this private key",
@@ -227,7 +266,16 @@ COMMANDS: dict[str, CommandInfo] = {
         "-n": "how many overwrite passes",
         "-f": "change permissions if needed to write",
     }),
-    "srm": _c("overwrite and delete a file so it cannot be recovered", DESTROY),
+    "srm": _c("overwrite and delete a file so it cannot be recovered", DESTROY, {
+        "-r": "recurse into directories",
+        "-R": "recurse into directories",
+        "-f": "never prompt, and ignore what is missing",
+        "-i": "ask before every file",
+        "-s": "a single fast pass instead of the full wipe",
+        "-m": "the 35-pass wipe",
+        "-z": "finish with a pass of zeroes",
+        "-v": "name each file as it goes",
+    }),
     "truncate": _c("set a file's length, discarding whatever is past it", DESTROY, {
         "-s": "the new size ('0' empties the file)",
     }),
@@ -246,8 +294,17 @@ COMMANDS: dict[str, CommandInfo] = {
     "fdisk": _c("edit a disk's partition table", DISK),
     "parted": _c("edit a disk's partition table", DISK),
     "diskutil": _c("inspect and alter macOS disks and volumes", DISK),
-    "mount": _c("attach a filesystem into the directory tree", DISK),
-    "umount": _c("detach a filesystem from the directory tree", DISK),
+    "mount": _c("attach a filesystem into the directory tree", DISK, {
+        "-a": "mount everything listed in the filesystem table",
+        "-o": "the mount options, as a comma-separated list",
+        "-r": "mount it read-only",
+        "-t": "treat it as this filesystem type",
+    }),
+    "umount": _c("detach a filesystem from the directory tree", DISK, {
+        "-a": "detach everything that is mounted",
+        "-f": "detach it even if it is still in use",
+        "-l": "detach it once nothing is using it any more",
+    }),
 
     # --- files and permissions ---------------------------------------------
     "cp": _c("copy files", FILES, {
@@ -421,7 +478,21 @@ COMMANDS: dict[str, CommandInfo] = {
         "-u": "only this user's processes",
         "-f": "match against the whole command line",
     }),
-    "ps": _c("list the processes running now", INSPECT),
+    "ps": _c("list the processes running now", INSPECT, {
+        "-e": "every process, not only your own",
+        "-A": "every process, not only your own",
+        "-a": "other users' processes as well as your own",
+        "-f": "the full format, including each whole command line",
+        "-u": "only the processes belonging to these users",
+        "-p": "only these process ids",
+        "-o": "print exactly these columns",
+        "-x": "include processes with no terminal attached",
+        "-c": "show the executable's name rather than the whole command line",
+        "-l": "the long format",
+        "-w": "use a wider line before truncating",
+        "-v": "a set of columns about memory use, which is not the same as "
+              "being chatty",
+    }),
     "top": _c("watch processes as they run", INSPECT),
     "htop": _c("watch processes as they run", INSPECT),
     "nohup": _c("run something so it survives the terminal closing", PROCESS),
@@ -434,6 +505,7 @@ COMMANDS: dict[str, CommandInfo] = {
     # --- networking ---------------------------------------------------------
     "ssh": _c("open a shell, or run one command, on another machine", NETWORK, {
         "-o": "set an SSH option by name",
+        "-v": "verbose: print the connection and authentication steps",
         "-i": "authenticate with this private key",
         "-p": "connect to this port",
         "-L": "forward a local port to the far side",
@@ -479,16 +551,9 @@ COMMANDS: dict[str, CommandInfo] = {
     "tac": _c("print a file backwards", TEXT),
     "echo": _c("print its arguments", TEXT),
     "printf": _c("print its arguments in a given format", TEXT),
-    "grep": _c("print the lines that match a pattern", TEXT, {
-        "-r": "search a whole directory tree",
-        "-i": "ignore case",
-        "-v": "print the lines that do NOT match",
-        "-n": "show line numbers",
-        "-E": "treat the pattern as an extended regular expression",
-        "-o": "print only the matching part",
-        "-l": "print only the names of matching files",
-    }),
-    "egrep": _c("print the lines that match an extended pattern", TEXT),
+    "grep": _c("print the lines that match a pattern", TEXT, _GREP_FLAGS),
+    "egrep": _c("print the lines that match an extended pattern", TEXT,
+                _GREP_FLAGS),
     "sed": _c("rewrite a stream of text by rule", TEXT, {
         "-i": "edit the FILES in place rather than printing the result",
         "-n": "print nothing unless asked to",
@@ -498,16 +563,65 @@ COMMANDS: dict[str, CommandInfo] = {
     "awk": _c("pull fields out of each line, and compute with them", TEXT, {
         "-F": "the field separator",
         "-v": "set a variable for the program",
+        "-f": "read the PROGRAM from this file",
+        "--file": "read the PROGRAM from this file",
     }),
-    "cut": _c("keep only some columns of each line", TEXT),
-    "sort": _c("sort lines", TEXT),
-    "uniq": _c("collapse repeated neighbouring lines", TEXT),
-    "head": _c("print the first lines of a file", TEXT),
+    "cut": _c("keep only some columns of each line", TEXT, {
+        "-d": "the field separator",
+        "-f": "which fields to keep",
+        "-c": "which characters to keep",
+        "-b": "which bytes to keep",
+        "-s": "drop lines that have no separator in them",
+    }),
+    "sort": _c("sort lines", TEXT, {
+        "-r": "reverse the order",
+        "-n": "compare as numbers rather than as text",
+        "-h": "compare sizes written like 2K or 1G",
+        "-k": "sort on this field rather than the whole line",
+        "-t": "the field separator",
+        "-u": "keep only the first of each run of equal lines",
+        "-o": "write the result to this FILE instead of standard output",
+        "-f": "ignore case while comparing",
+        "-b": "ignore leading blanks",
+        "-c": "check whether the input is sorted, and print nothing if it is",
+        "-s": "keep equal lines in their original order",
+        "-R": "shuffle into a random order rather than sorting",
+        "-V": "compare version numbers inside the text",
+        "-z": "lines end with a null byte, not a newline",
+    }),
+    "uniq": _c("collapse repeated neighbouring lines", TEXT, {
+        "-c": "prefix each line with how many times it repeated",
+        "-d": "print only the lines that do repeat",
+        "-u": "print only the lines that do not repeat",
+        "-i": "ignore case while comparing",
+        "-f": "skip this many fields before comparing",
+        "-s": "skip this many characters before comparing",
+    }),
+    "head": _c("print the first lines of a file", TEXT, {
+        "-n": "how many lines to print",
+        "-c": "how many bytes to print",
+    }),
     "tail": _c("print the last lines of a file", TEXT, {
+        "-n": "how many lines to print, or '+N' to start at line N",
+        "-c": "how many bytes to print",
         "-f": "keep printing as the file grows",
+        "-F": "keep printing, and reopen the name if the file is replaced",
+        "-q": "do not print a header naming each file",
+        "-v": "always print a header naming each file",
     }),
-    "tr": _c("replace or delete characters", TEXT),
-    "wc": _c("count lines, words and bytes", TEXT),
+    "tr": _c("replace or delete characters", TEXT, {
+        "-d": "DELETE these characters instead of replacing them",
+        "-s": "squeeze each run of them down to one",
+        "-c": "act on every character EXCEPT the ones given",
+        "-C": "act on every character EXCEPT the ones given",
+    }),
+    "wc": _c("count lines, words and bytes", TEXT, {
+        "-l": "count lines only",
+        "-w": "count words only",
+        "-c": "count bytes only",
+        "-m": "count characters only",
+        "-L": "report the length of the longest line",
+    }),
     "tee": _c("pass a stream along and write a copy to a file", TEXT, {
         "-a": "append to the file rather than replacing it",
     }),
@@ -535,6 +649,7 @@ COMMANDS: dict[str, CommandInfo] = {
     "tar": _c("pack files into an archive, or unpack one", ARCHIVE, {
         "-x": "extract",
         "-c": "create",
+        "-a": "choose the compression from the archive's name",
         "-t": "list the contents without extracting",
         "-z": "the archive is gzip-compressed",
         "-j": "the archive is bzip2-compressed",
@@ -624,11 +739,40 @@ COMMANDS: dict[str, CommandInfo] = {
     "hg": _c("work with a Mercurial repository", VCS),
 
     # --- looking around ----------------------------------------------------
-    "ls": _c("list what is in a directory", INSPECT),
+    "ls": _c("list what is in a directory", INSPECT, {
+        "-l": "one line per entry, with permissions, owner, size and time",
+        "-a": "include the entries whose names begin with a dot",
+        "-A": "include dotfiles, but not '.' and '..'",
+        "-h": "sizes in human-readable units, alongside -l",
+        "-R": "list every subdirectory too, recursively",
+        "-t": "newest first",
+        "-S": "largest first",
+        "-r": "reverse whatever the order is",
+        "-d": "the directory itself, not what is inside it",
+        "-1": "one name per line",
+        "-i": "show each entry's inode number",
+        "-F": "mark directories and executables with a trailing symbol",
+    }),
     "pwd": _c("print the directory you are in", INSPECT),
     "cd": _c("change the directory you are in", BUILTIN),
-    "df": _c("show how full each filesystem is", INSPECT),
-    "du": _c("show how much space files take up", INSPECT),
+    "df": _c("show how full each filesystem is", INSPECT, {
+        "-h": "sizes in human-readable units",
+        "-i": "report inodes — how many files can still be created",
+        "-k": "sizes in 1K blocks",
+        "-l": "local filesystems only",
+        "-a": "include the filesystems normally left out",
+        "-c": "add a grand total",
+    }),
+    "du": _c("show how much space files take up", INSPECT, {
+        "-s": "one total per argument, and nothing from inside it",
+        "-h": "sizes in human-readable units",
+        "-a": "a line for every file, not only for directories",
+        "-c": "add a grand total",
+        "-d": "how many levels deep to report",
+        "-k": "sizes in 1K blocks",
+        "-x": "stay on one filesystem",
+        "-L": "follow symbolic links",
+    }),
     "stat": _c("show a file's size, owner, permissions and times", INSPECT),
     "file": _c("guess what kind of data a file holds", INSPECT),
     "which": _c("show which program a name would run", INSPECT),
@@ -639,7 +783,17 @@ COMMANDS: dict[str, CommandInfo] = {
     "uname": _c("print the kernel and machine name", INSPECT),
     "env": _c("print the environment, or run something with it changed", INSPECT),
     "uptime": _c("say how long the machine has been running", INSPECT),
-    "date": _c("print or set the system clock", INSPECT),
+    "date": _c("print or set the system clock", INSPECT, {
+        "-r": "take the time from this file's timestamp, or from these epoch "
+              "seconds, instead of now",
+        "-u": "work in UTC rather than local time",
+        "-R": "print it in the RFC 2822 format mail uses",
+        "-I": "print it in ISO 8601 format",
+        "-s": "SET the system clock to this time",
+        "-f": "the format the given time is written in",
+        "-j": "do not set the clock, only format the time given",
+        "-v": "shift the time by this much before printing it",
+    }),
     "lsof": _c("list the files and sockets processes have open", INSPECT),
     "defaults": _c("read and write macOS preference values", PERMISSION),
     "true": _c("do nothing, successfully", BUILTIN),
@@ -708,9 +862,16 @@ def gloss_flag(command: str, flag: str) -> list[tuple[str, str]]:
     ``-exec``) is never mistaken for a bag of letters. A cluster is only split
     when *every* letter in it has a meaning, which keeps the explanation honest
     rather than partial.
+
+    Nothing is said about the flags of a command Caveat has no entry for: the
+    meaning of ``-n`` is the command's to decide, so with the command unknown
+    the flag is unknown too. Returning no gloss is the honest answer, and
+    :func:`explain_stage` renders it as silence.
     """
     info = info_for(command)
-    table = info.flags if info else {}
+    if info is None:
+        return []
+    table = info.flags
 
     def look(token: str) -> str:
         return table.get(token) or GENERIC_FLAGS.get(token, "")

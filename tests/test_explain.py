@@ -125,11 +125,125 @@ def test_an_equals_form_is_glossed_by_its_name():
 
 
 def test_a_generic_flag_is_used_when_the_command_has_no_entry_of_its_own():
-    assert gloss_flag("ls", "-r")[0][1] == GENERIC_FLAGS["-r"]
+    assert gloss_flag("ls", "--help")[0][1] == GENERIC_FLAGS["--help"]
 
 
 def test_an_unknown_flag_glosses_to_nothing():
     assert gloss_flag("curl", "--wibble") == []
+
+
+# --- the glossary says the right thing, or nothing -------------------------
+# A wrong gloss is worse than no gloss for a tool whose promise is "this is
+# what the line actually does", so the accuracy of the glossary is held down
+# by tests rather than by good intentions.
+
+def test_the_generic_table_holds_only_long_options():
+    """No single letter means the same thing everywhere, so none may live here.
+
+    ``-r`` is reverse to ``sort`` and recursive to ``rm``; ``-n`` is a line
+    count to ``head`` and a dry run to ``rsync``; ``-i`` is inodes to ``df``
+    and a prompt to ``rm``. A short letter in the shared table is therefore a
+    guess wearing the clothes of a fact, and this test is what stops one being
+    added back.
+    """
+    offenders = [flag for flag in GENERIC_FLAGS if not flag.startswith("--")]
+    assert offenders == [], (
+        f"{offenders} mean different things to different commands; give the "
+        f"meaning to the command's own entry instead")
+
+
+# Each row is a command, a flag, and words that must appear in its gloss.
+# The first seven are the cases that shipped wrong.
+@pytest.mark.parametrize("command,flag,expected", [
+    ("sort", "-r", "reverse"),
+    ("sort", "-n", "numbers"),
+    ("head", "-n", "how many lines"),
+    ("tail", "-n", "how many lines"),
+    ("awk", "-f", "read the PROGRAM from this file"),
+    ("df", "-i", "inodes"),
+    ("uniq", "-i", "ignore case"),
+    ("date", "-r", "timestamp"),
+    ("du", "-s", "one total per argument"),
+    ("du", "-h", "human-readable"),
+    ("ps", "-e", "every process"),
+    ("ps", "-f", "full format"),
+    ("wc", "-l", "count lines"),
+    ("cut", "-f", "which fields"),
+    ("cut", "-d", "separator"),
+    ("tr", "-d", "DELETE"),
+    ("ls", "-a", "begin with a dot"),
+    ("tar", "-f", "archive file"),
+    ("sed", "-i", "in place"),
+    ("grep", "-i", "ignore case"),
+    ("grep", "-v", "do NOT match"),
+    ("egrep", "-v", "do NOT match"),
+    ("rm", "-rf", "never prompt"),
+    ("rsync", "-n", "dry run"),
+])
+def test_a_flag_is_glossed_with_its_own_commands_meaning(command, flag, expected):
+    glossed = gloss_flag(command, flag)
+    assert glossed, f"{command} {flag} lost its gloss"
+    assert expected in " ".join(m for _, m in glossed), f"{command} {flag}"
+
+
+# Each row is a command, a flag, and a meaning that belongs to some OTHER
+# command's use of that flag. None of these may ever be the gloss. Every one
+# of them was real output before the shared table was narrowed.
+@pytest.mark.parametrize("command,flag,wrong", [
+    ("sort", "-r", "recursive"),
+    ("sort", "-n", "dry run"),
+    ("sort", "-n", "no-clobber"),
+    ("head", "-n", "dry run"),
+    ("tail", "-n", "no-clobber"),
+    ("awk", "-f", "force"),
+    ("df", "-i", "interactive"),
+    ("uniq", "-i", "interactive"),
+    ("date", "-r", "recursive"),
+    ("date", "-R", "recursive"),
+    ("ps", "-h", "human-readable"),
+    ("ps", "-v", "verbose"),
+    ("tar", "-a", "all"),
+    ("egrep", "-v", "verbose"),
+    ("ls", "-i", "interactive"),
+    ("ls", "-r", "recursive"),
+    ("cut", "-f", "force"),
+    ("wc", "-c", "create"),
+])
+def test_no_flag_is_glossed_with_another_commands_meaning(command, flag, wrong):
+    said = " ".join(m for _, m in gloss_flag(command, flag)).lower()
+    assert wrong not in said, f"{command} {flag} is glossed as {wrong!r}"
+
+
+@pytest.mark.parametrize("name", sorted(COMMANDS))
+def test_a_commands_own_meaning_always_beats_the_shared_table(name):
+    for flag, meaning in COMMANDS[name].flags.items():
+        assert gloss_flag(name, flag) == [(flag, meaning)], f"{name} {flag}"
+
+
+@pytest.mark.parametrize("source,retired", [
+    ("sort -rn access.log", "dry run or no-clobber"),
+    ("sort -rn access.log", "-r recursive"),
+    ("head -n 20 f", "dry run or no-clobber"),
+    ("tail -n 50 f", "dry run or no-clobber"),
+    ("awk -f script.awk f", "-f force"),
+    ("df -i", "-i interactive"),
+])
+def test_the_sentences_that_shipped_wrong_are_right_now(source, retired):
+    assert retired not in sentence(source)
+
+
+def test_an_unknown_command_has_none_of_its_flags_explained():
+    assert gloss_flag("frobnicate", "-r") == []
+    assert gloss_flag("frobnicate", "--force") == []
+    assert sentence("frobnicate -rf --force") == (
+        "frobnicate — Caveat has no entry for this command")
+
+
+def test_a_flag_with_no_known_meaning_leaves_the_sentence_clean():
+    assert sentence("stat -x f") == (
+        "stat — show a file's size, owner, permissions and times")
+    assert sentence("du -shQ .") == (
+        "du — show how much space files take up")
 
 
 # --- sentences --------------------------------------------------------------

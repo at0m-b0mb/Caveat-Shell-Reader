@@ -4,6 +4,45 @@ All notable changes to Caveat are recorded here. The format follows
 [Keep a Changelog](https://keepachangelog.com/), and the project uses
 [semantic versioning](https://semver.org/).
 
+## [1.0.1] — 2026-10-02
+
+A correctness release for the glossary. Nothing about the verdicts changed;
+what changed is what Caveat is willing to claim a flag means.
+
+### Fixed
+- **Flags are no longer explained with another command's meaning.** The shared
+  `GENERIC_FLAGS` table had been applied to the 105 commands that carried no
+  glossary of their own, on the premise that some letters mean the same thing
+  everywhere. They do not: `sort -rn` was explained as "recursive, dry run or
+  no-clobber" when it means *reverse, numeric*; `head -n` and `tail -n` as "dry
+  run or no-clobber" when they are a line count; `awk -f` as "force" when it is
+  the program file; `df -i` as "interactive" when it is inodes; `uniq -i` as
+  "interactive" when it is ignore-case; `date -r` as "recursive"; `tar -a` as
+  "all". For a tool whose whole promise is to say what a line really does, a
+  confident wrong gloss is worse than no gloss.
+- The shared table now holds only long options that genuinely are universal
+  (`--help`, `--version`, `--verbose`, `--quiet`, `--force`, `--recursive`,
+  `--yes`). No single letter survived the check, so none is left in it.
+- A command Caveat has no entry for now has **none of its flags glossed**
+  either. The meaning of `-n` belongs to the command, so with the command
+  unknown the flag is unknown too.
+
+### Added
+- Real flag glossaries for the commands that used to fall through to the shared
+  table: `sort`, `head`, `tail`, `uniq`, `cut`, `tr`, `wc`, `ls`, `df`, `du`,
+  `date`, `ps`, `egrep`, plus `awk -f`, `tar -a`, `grep`'s missing half, and
+  `srm`, `ftp`, `mount` and `umount`, which are in families where silence costs
+  the most.
+- 238 further tests, including a table of correct glosses, a table of meanings
+  that must never be produced for a given command, a check that every command's
+  own entry beats the shared table, and a structural test that keeps short
+  letters out of the shared table for good. 1103 in total.
+- Screenshots for every sample in both themes, rather than four of the seven.
+
+### Changed
+- The social card's safe-border measurement now walks every pixel with a named
+  tolerance, and prints that tolerance, so the figure reproduces exactly.
+
 ## [1.0.0] — 2026-10-02
 
 First release.

@@ -29,6 +29,12 @@ from PIL import Image, ImageDraw, ImageFont
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 IMG = os.path.join(ROOT, "images")
 
+# How the safe border is measured, pinned so the printed numbers reproduce:
+# a pixel counts as ink when any channel is more than INK_TOLERANCE away from
+# the background, and every pixel is looked at rather than every other one.
+INK_TOLERANCE = 6
+SCAN_STEP = 1
+
 SERIF = "/System/Library/Fonts/Supplemental/Iowan Old Style.ttc"
 SANS = "/System/Library/Fonts/SFNS.ttf"
 MONO = "/System/Library/Fonts/Menlo.ttc"
@@ -257,17 +263,23 @@ def render_card(path: str, dark: bool = False) -> None:
 
 
 def _assert_safe_border(path: str, margin: int, bg_hex: str) -> None:
-    """Measure the rendered PNG: no non-background ink inside the border."""
+    """Measure the rendered PNG: no non-background ink inside the border.
+
+    The two numbers that decide the answer — which channel difference counts
+    as ink, and how finely the canvas is walked — are named constants, and the
+    tolerance is printed beside the result. A measurement nobody else can
+    reproduce is not a measurement, and this one gets quoted.
+    """
     im = Image.open(path).convert("RGB")
     W, H = im.size
     px = im.load()
     bg = tuple(int(bg_hex.lstrip("#")[i:i + 2], 16) for i in (0, 2, 4))
 
     def near(colour):
-        return all(abs(colour[i] - bg[i]) <= 6 for i in range(3))
+        return all(abs(colour[i] - bg[i]) <= INK_TOLERANCE for i in range(3))
 
-    points = [(x, y) for y in range(0, H, 2) for x in range(0, W, 2)
-              if not near(px[x, y])]
+    points = [(x, y) for y in range(0, H, SCAN_STEP)
+              for x in range(0, W, SCAN_STEP) if not near(px[x, y])]
     if not points:
         return
     left = min(p[0] for p in points)
@@ -278,7 +290,9 @@ def _assert_safe_border(path: str, margin: int, bg_hex: str) -> None:
     assert tightest >= margin, (
         f"content reaches {tightest}px from the edge (need {margin})")
     print(f"  measured card margins: L{left} R{W - 1 - right} T{top} "
-          f"B{H - 1 - bottom} — ok")
+          f"B{H - 1 - bottom} — ok "
+          f"(every pixel, ink = any channel more than {INK_TOLERANCE} from "
+          f"the background)")
 
 
 # --- banner -------------------------------------------------------------------

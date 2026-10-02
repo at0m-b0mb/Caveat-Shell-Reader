@@ -23,18 +23,21 @@ from caveat.ui import theme  # noqa: E402
 from caveat.ui.main_window import MainWindow  # noqa: E402
 
 SIZE = (1200, 880)
-SHOTS = [
-    ("install-script.sh", theme.LIGHT),
-    ("install-script.sh", theme.DARK),
-    ("wipe-the-disk.sh", theme.LIGHT),
-    ("wipe-the-disk.sh", theme.DARK),
-    ("benign-pipeline.sh", theme.LIGHT),
-    ("benign-pipeline.sh", theme.DARK),
-    ("obfuscated-payload.sh", theme.LIGHT),
-    ("permissions-fix.sh", theme.LIGHT),
-    ("log-triage.sh", theme.LIGHT),
-    ("log-triage.sh", theme.DARK),
+
+# Every sample in both themes. A sample with only a light capture is a sample
+# whose dark rendering nobody has looked at, and the dark theme is where a
+# contrast mistake hides.
+SAMPLES = [
+    "install-script.sh",
+    "wipe-the-disk.sh",
+    "benign-pipeline.sh",
+    "obfuscated-payload.sh",
+    "permissions-fix.sh",
+    "routine-download.sh",
+    "log-triage.sh",
 ]
+SHOTS = [(name, mode) for name in SAMPLES
+         for mode in (theme.LIGHT, theme.DARK)]
 
 
 def main() -> int:

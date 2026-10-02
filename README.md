@@ -17,7 +17,7 @@ way to do the same job. It never runs, simulates or fetches anything.
 ![Python](https://img.shields.io/badge/Python-3.10%2B-7A5D18?style=flat-square)
 ![PyQt6](https://img.shields.io/badge/UI-PyQt6-7A5D18?style=flat-square)
 ![Offline](https://img.shields.io/badge/network-never-2C6249?style=flat-square)
-![Tests](https://img.shields.io/badge/tests-865%20passing-2C6249?style=flat-square)
+![Tests](https://img.shields.io/badge/tests-1103%20passing-2C6249?style=flat-square)
 ![License](https://img.shields.io/badge/license-MIT-847D6E?style=flat-square)
 
 </div>
@@ -85,7 +85,10 @@ Three rules hold that line:
   heard of cannot be ROUTINE, because "nothing matched" would then mean
   "nothing was looked at". The same goes for a line whose quotes do not close,
   and for one whose first word is a variable. The headline says *why* it was
-  capped.
+  capped. The same rule governs the flags: `-n` is a line count to `head` and a
+  dry run to `rsync`, so a flag is explained only where its meaning is known
+  for *that* command, and otherwise it is left unexplained. Silence is honest;
+  a confident wrong gloss would not be.
 - **Shapes, not names.** Every detection is a property of the text: a *fetcher*
   piped into something that *executes what it is given*; a delete target that
   is a variable with a slash glued on. There is no list of bad domains or
@@ -220,7 +223,7 @@ python3 -m pip install -r requirements-dev.txt
 python3 -m pytest -q
 ```
 
-865 tests. Every rule has two: a line that must trip it, and a line that looks
+1103 tests. Every rule has two: a line that must trip it, and a line that looks
 like it but must not — the second being the one that keeps the tool usable. The
 diagram's wrapping is tested with a stand-in text measurer so it can be
 exercised at every width without a screen, and the palette is held to WCAG AA
@@ -243,7 +246,7 @@ caveat/
     main_window.py   the reader itself
   cli.py           the same engine on the command line
 samples/           seven synthetic lines spanning the whole verdict range
-tests/             865 tests, including the contrast suite
+tests/             1103 tests, including the contrast suite
 tools/             screenshot capture and repository art
 ```
 
